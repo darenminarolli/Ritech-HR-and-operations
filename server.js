@@ -80,12 +80,10 @@ app.post('/create-item', async (req, res) => {
     const start = DateTime.fromISO(startDateISO, { zone: 'utc' });
     const now   = DateTime.utc();
 
-    // Extract user information from the payload
     const email = payload.resource.fields['System.CreatedBy'].split('<')[1].replace('>', '');
     const name = payload.resource.fields['Custom.Fullname'];
     const tags = payload.resource.fields['System.Tags'] || '';
 
-    // Determine if this is onboarding or offboarding
     const isOnboarding = tags.includes('OnBoarding');
     const isOffboarding = tags.includes('OffBoarding');
 
