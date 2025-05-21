@@ -39,8 +39,8 @@ const onboardingRules = [
   { name: 'create-email',      offsetDays: -7, template: '🔔 Create business e-mail address from GoDaddy for <%= name %>' },
   { name: 'create-bamboo',      offsetDays: -3, template: '🔔 Create BambooHR account for <%= name %>' },
   { name: 'send-welcome',       offsetDays: -7, template: '🔔 Send welcome e-mail to <%= name %>' },
-  { name: 'setup-device',       offsetMinDays: -4, template: '🔔 Set up work device and peripherals for <%= name %>' },
-  { name: 'activate-card',      offsetMinDays: -4, template: '🔔 Activate access card for <%= name %>' },
+  { name: 'setup-device',       offsetDays: -4, template: '🔔 Set up work device and peripherals for <%= name %>' },
+  { name: 'activate-card',      offsetDays: -4, template: '🔔 Activate access card for <%= name %>' },
   { name: 'day-1-orientation',  offsetDays:  0, template: '🔔 Day 1 Orientation for <%= name %> (tour & policies)' },
   { name: 'verify-systems',     offsetDays:  0, template: '🔔 Ensure all work-related systems work correctly for <%= name %>' },
   { name: 'team-intro',         offsetDays:  0, template: '🔔 Introduction with the team for <%= name %>' },
@@ -69,7 +69,7 @@ new Worker('onboarding-queue', async job => {
 
 app.post('/create-item', async (req, res) => {
   const payload = req.body;
-  console.log('Received payload:', JSON.stringify(payload, null, 2));
+
 
   try {
     const field = payload.resource.fields['Microsoft.VSTS.Scheduling.StartDate']
@@ -87,18 +87,18 @@ app.post('/create-item', async (req, res) => {
     const isOnboarding = tags.includes('OnBoarding');
     const isOffboarding = tags.includes('OffBoarding');
 
+    // if (!isOnboarding && !isOffboarding) {
+    //   console.log(tags);
+    //   throw new Error('Work item must be tagged as either OnBoarding or OffBoarding');
+    // }
 
+    const slackId = await getSlackUserIdByEmail(email);
     const rules = isOnboarding ? onboardingRules : offboardingRules;
 
     for (const rule of rules) {
-      const isPaperWork_signing = rule.name === 'paperwork-signing';
-      const is = rule.name === 'final-payroll';
-      const recipientEmail = isPaperWork_signing ? 'dminarolli@ritech.co': is? 'dminarolli@ritech.co' : 'kkolani@ritech.co';
-    
-      const slackId = await getSlackUserIdByEmail(recipientEmail);
       const due = start.plus({ days: rule.offsetDays || 0 });
       const delayMs = due.diff(now).as('milliseconds');
-
+      
      
       if (rule.offsetDays === 0) {
         console.log(`Sending immediate message for '${rule.name}'`);
@@ -122,8 +122,5 @@ app.post('/create-item', async (req, res) => {
   }
 });
 
-app.get('/', (req, res) => {
-  res.send('Hello World!')
-})
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`🚀 Server listening on port ${PORT}`));
