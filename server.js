@@ -87,18 +87,18 @@ app.post('/create-item', async (req, res) => {
     const isOnboarding = tags.includes('OnBoarding');
     const isOffboarding = tags.includes('OffBoarding');
 
-    if (!isOnboarding && !isOffboarding) {
-      console.log(tags);
-      throw new Error('Work item must be tagged as either OnBoarding or OffBoarding');
-    }
 
-    const slackId = await getSlackUserIdByEmail(email);
     const rules = isOnboarding ? onboardingRules : offboardingRules;
 
     for (const rule of rules) {
+      const isPaperWork_signing = rule.name === 'paperwork-signing';
+      const is = rule.name === 'final-payroll';
+      const recipientEmail = isPaperWork_signing ? 'dminarolli@ritech.co': is? 'dminarolli@ritech.co' : 'kkolani@ritech.co';
+    
+      const slackId = await getSlackUserIdByEmail(recipientEmail);
       const due = start.plus({ days: rule.offsetDays || 0 });
       const delayMs = due.diff(now).as('milliseconds');
-      
+
      
       if (rule.offsetDays === 0) {
         console.log(`Sending immediate message for '${rule.name}'`);
