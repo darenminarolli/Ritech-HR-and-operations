@@ -170,7 +170,7 @@ app.post('/create-item', async (req, res) => {
     const start = DateTime.fromISO(dateISO, { zone: 'utc' });
     const email = payload.resource.fields['System.CreatedBy'].split('<')[1].replace('>', '');
     const name = payload.resource.fields['Custom.Fullname'];
-    const slackIdBase = await getSlackUserIdByEmail('dminarolli@ritech.co');
+    const slackId= await getSlackUserIdByEmail('dminarolli@ritech.co');
 
     const rules = isOnboarding ? onboardingRules : offboardingRules;
     for (const rule of rules) {
