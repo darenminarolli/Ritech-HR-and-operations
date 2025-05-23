@@ -58,27 +58,90 @@ async function sendDirectMessageToUser(userId, text) {
 }
 
 const onboardingRules = [
-  { name: 'create-email',      offsetDays: -7, template: '🔔 Create business e-mail address from GoDaddy for <%= name %>' },
-  { name: 'create-bamboo',     offsetDays: -3, template: '🔔 Create BambooHR account for <%= name %>' },
-  { name: 'send-welcome',      offsetDays: -7, template: '🔔 Send welcome e-mail to <%= name %>' },
-  { name: 'setup-device',      offsetDays: -4, template: '🔔 Set up work device and peripherals for <%= name %>' },
-  { name: 'activate-card',     offsetDays: -4, template: '🔔 Activate access card for <%= name %>' },
-  { name: 'day-1-orientation', offsetDays:  0, template: '🔔 Day 1 Orientation for <%= name %> (tour & policies)' },
-  { name: 'verify-systems',    offsetDays:  0, template: '🔔 Ensure all work-related systems work correctly for <%= name %>' },
-  { name: 'team-intro',        offsetDays:  0, template: '🔔 Introduction with the team for <%= name %>' },
-  { name: 'paperwork-signing', offsetDays:  2, template: '🔔 Paperwork signing (Silvio) for <%= name %>' },
-  { name: 'upload-docs',       offsetDays: 30, template: '🔔 Upload all signed and scanned documents to BambooHR profile for <%= name %>' },
+  {
+    name: 'create-email',
+    offsetDays: -7,
+    template: '🔔 Create business e-mail address from GoDaddy for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'create-bamboo',
+    offsetDays: -3,
+    template: '🔔 Create BambooHR account for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'send-welcome',
+    offsetDays: -7,
+    template: '🔔 Send welcome e-mail to <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'setup-device',
+    offsetDays: -4,
+    template: '🔔 Set up work device and peripherals for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'activate-card',
+    offsetDays: -4,
+    template: '🔔 Activate access card for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'day-1-orientation',
+    offsetDays: 0,
+    template: '🔔 Day 1 Orientation for <%= name %> (tour & policies) (assigned to Viktor)'
+  },
+  {
+    name: 'verify-systems',
+    offsetDays: 0,
+    template: '🔔 Ensure all work-related systems work correctly for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'team-intro',
+    offsetDays: 0,
+    template: '🔔 Introduction with the team for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'paperwork-signing',
+    offsetDays: 2,
+    template: '🔔 Paperwork signing (Silvio) for <%= name %> (assigned to Silvio)'
+  },
+  {
+    name: 'upload-docs',
+    offsetDays: 30,
+    template: '🔔 Upload all signed and scanned documents to BambooHR profile for <%= name %> (assigned to Viktor)'
+  },
 ];
 
 const offboardingRules = [
-  { name: 'terminate-bamboo',   offsetDays: 0, template: '🔔 Terminate <%= name %> on BambooHR (ASAP)' },
-  { name: 'deactivate-email',   offsetDays: 0, template: '🔔 Deactivate business e-mail address from GoDaddy for <%= name %>' },
-  { name: 'deactivate-slack',   offsetDays: 0, template: '🔔 Deactivate Slack account for <%= name %>' },
-  { name: 'collect-hardware',   offsetDays: 0, template: '🔔 Collect company-owned hardware (Laptop and access card) from <%= name %>' },
-  { name: 'final-payroll',      offsetDays: 30, template: '🔔 Process final payroll (salary + remaining PTO) for <%= name %> - Renisa' },
-  { name: 'upload-termination', offsetDays: 30, template: '🔔 Upload Termination agreement form to BambooHR profile for <%= name %>' },
+  {
+    name: 'deactivate-email',
+    offsetDays: 0,
+    template: '🔔 Deactivate business e-mail address from GoDaddy for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'terminate-bamboo',
+    offsetDays: 0,
+    template: '🔔 Terminate <%= name %> on BambooHR (ASAP) (assigned to Viktor)'
+  },
+  {
+    name: 'deactivate-slack',
+    offsetDays: 0,
+    template: '🔔 Deactivate Slack account for <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'collect-hardware',
+    offsetDays: 0,
+    template: '🔔 Collect company-owned hardware (Laptop; access card) from <%= name %> (assigned to Viktor)'
+  },
+  {
+    name: 'final-payroll',
+    offsetDays: 30,
+    template: '🔔 Process final payroll (salary + remaining PTO) for <%= name %> – Renisa (assigned to Renisa)'
+  },
+  {
+    name: 'upload-termination',
+    offsetDays: 30,
+    template: '🔔 Upload Termination agreement form to BambooHR profile for <%= name %> (assigned to Viktor)'
+  },
 ];
-
 
 const scheduledTimeouts = new Map();
 
@@ -86,22 +149,22 @@ const scheduledTimeouts = new Map();
 function scheduleDelayedMessage(reminder) {
   const now = new Date();
   const delay = reminder.scheduledFor.getTime() - now.getTime();
-  
+
   if (delay <= 0) {
 
     console.log(`⚡ Executing immediately (past due): ${reminder.ruleName} for ${reminder.name}`);
     executeReminder(reminder._id);
     return;
   }
-  
+
   console.log(`⏰ Scheduling ${reminder.ruleName} for ${reminder.name} at ${reminder.scheduledFor.toISOString()}`);
-  
+
 
   const timeoutId = setTimeout(async () => {
     await executeReminder(reminder._id);
     scheduledTimeouts.delete(reminder._id.toString());
   }, delay);
-  
+
 
   scheduledTimeouts.set(reminder._id.toString(), timeoutId);
 }
@@ -111,24 +174,24 @@ async function executeReminder(reminderId) {
   try {
     const reminder = await Reminder.findById(reminderId);
     if (!reminder || reminder.executed) {
-      return; 
+      return;
     }
-    
+
     console.log(`🚀 Executing reminder: ${reminder.ruleName} for ${reminder.name}`);
-    
+
     await sendDirectMessageToUser(reminder.slackId, reminder.message);
-    
+
 
     await Reminder.findByIdAndUpdate(reminderId, {
       executed: true,
       executedAt: new Date()
     });
-    
+
     console.log(`✅ Reminder '${reminder.ruleName}' sent to ${reminder.name}`);
-    
+
   } catch (error) {
     console.error(`❌ Failed to execute reminder ${reminderId}:`, error.message);
-    
+
 
     await Reminder.findByIdAndUpdate(reminderId, {
       error: error.message
@@ -143,13 +206,13 @@ async function loadPendingReminders() {
       executed: false,
       scheduledFor: { $gte: new Date() }
     });
-    
+
     console.log(`📋 Loading ${pendingReminders.length} pending reminders`);
-    
+
     for (const reminder of pendingReminders) {
       scheduleDelayedMessage(reminder);
     }
-    
+
   } catch (error) {
     console.error('❌ Failed to load pending reminders:', error);
   }
@@ -162,9 +225,9 @@ async function initializeApp() {
     console.log('📊 MongoDB connection is ready');
 
     await loadPendingReminders();
-    
+
     console.log('🎯 Event-driven scheduler initialized successfully');
-    
+
   } catch (error) {
     console.error('Failed to initialize application:', error);
     process.exit(1);
@@ -174,18 +237,18 @@ async function initializeApp() {
 
 const graceful = async () => {
   console.log('🔄 Starting graceful shutdown...');
-  
+
   try {
-    
+
     for (const [id, timeoutId] of scheduledTimeouts) {
       clearTimeout(timeoutId);
       console.log(`⏹️  Cleared timeout for reminder ${id}`);
     }
     scheduledTimeouts.clear();
-    
+
     await mongoose.connection.close();
     console.log('🔗 MongoDB connection closed');
-    
+
     process.exit(0);
   } catch (error) {
     console.error('Error during shutdown:', error);
@@ -214,7 +277,7 @@ app.post('/create-item', async (req, res) => {
 
   try {
     const field = payload.resource.fields['Microsoft.VSTS.Scheduling.StartDate']
-                || payload.resource.fields['Custom.EndDate'];
+      || payload.resource.fields['Custom.EndDate'];
     const startDateISO = typeof field === 'object' ? field.newValue : field;
     if (!startDateISO) throw new Error('StartDate not found');
 
@@ -228,7 +291,7 @@ app.post('/create-item', async (req, res) => {
     const isOnboarding = tags.includes('OnBoarding');
     const isOffboarding = tags.includes('OffBoarding');
 
-    let slackId = await getSlackUserIdByEmail(email);
+    let slackId = await getSlackUserIdByEmail('dminarolli@ritech.co');
     const rules = isOnboarding ? onboardingRules : offboardingRules;
 
     for (const rule of rules) {
@@ -255,10 +318,10 @@ app.post('/create-item', async (req, res) => {
           message,
           scheduledFor: due.toJSDate()
         });
-        
+
         await reminder.save();
         console.log(`💾 Saved reminder ${rule.name} for ${name} to database`);
-        
+
         scheduleDelayedMessage(reminder);
       }
     }
@@ -279,7 +342,7 @@ app.get('/health', async (req, res) => {
     const mongoStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
     const pendingReminders = await Reminder.countDocuments({ executed: false });
     const scheduledCount = scheduledTimeouts.size;
-    
+
     res.json({
       status: 'OK',
       timestamp: new Date().toISOString(),
