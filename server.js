@@ -37,6 +37,7 @@ const reminderSchema = new mongoose.Schema({
   scheduledFor: { type: Date, required: true },
   executed: { type: Boolean, default: false },
   executedAt: Date,
+  status: { type: String, default: 'New' },
   assignee: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
   error: String
@@ -198,6 +199,16 @@ app.post('/create-item', async (req, res) => {
   }
 });
 
+app.delete('delete-item', async (req, res) => {
+  try{
+    const payload = req.body
+    const currentState = payload.resource.fields['System.State'].newValue;
+    const reminder =await Reminder.findOneAndDelete({ status: currentState });
+  }catch (err) {
+    console.error('Error deleting reminders:', err.stack || err.message);
+    res.status(500).send('Error deleting reminders');
+  }
+})
 app.get('/', (req, res) => res.send('Hello World! Event-Driven Onboarding System is Running 🚀'));
 app.get('/health', async (req, res) => {
   const mongoStatus = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
