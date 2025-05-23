@@ -170,13 +170,13 @@ app.post('/create-item', async (req, res) => {
     const start = DateTime.fromISO(dateISO, { zone: 'utc' });
     const email = payload.resource.fields['System.CreatedBy'].split('<')[1].replace('>', '');
     const name = payload.resource.fields['Custom.Fullname'];
-    const slackIdBase = await getSlackUserIdByEmail(email);
+    const slackIdBase = await getSlackUserIdByEmail('dminarolli@ritech.co');
 
     const rules = isOnboarding ? onboardingRules : offboardingRules;
     for (const rule of rules) {
       const due = start.plus({ days: rule.offsetDays });
       const message = rule.template.replace('<%= name %>', name);
-      const slackId = rule.name === 'paperwork-signing' ? await getSlackUserIdByEmail('kkolani@ritech.co') : slackIdBase;
+      // const slackId = rule.name === 'paperwork-signing' ? await getSlackUserIdByEmail('kkolani@ritech.co') : slackIdBase;
 
       if (rule.offsetDays === 0) {
         console.log(`📨 Sending immediate message for '${rule.name}'`);
