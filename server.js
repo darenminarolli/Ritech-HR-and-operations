@@ -13,6 +13,8 @@ const SLACK_API = 'https://slack.com/api';
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const MONGODB_URI = process.env.MONGODB_URI;
 
+const MAX_TIMEOUT = 2 ** 31 - 1; // Maximum for 32-bit signed int (~24.8 days)
+
 async function connectToMongoDB() {
   try {
     await mongoose.connect(MONGODB_URI, {
@@ -89,6 +91,18 @@ function extractISO(field) {
   return typeof field === 'object' && field.newValue ? field.newValue : field;
 }
 
+// Schedule with overflow-safe timeouts
+function scheduleReminder(reminderId, delay) {
+  const fn = () => executeReminder(reminderId);
+  if (delay > MAX_TIMEOUT) {
+    const timeoutId = setTimeout(() => scheduleReminder(reminderId, delay - MAX_TIMEOUT), MAX_TIMEOUT);
+    scheduledTimeouts.set(reminderId.toString(), timeoutId);
+  } else {
+    const timeoutId = setTimeout(fn, delay);
+    scheduledTimeouts.set(reminderId.toString(), timeoutId);
+  }
+}
+
 async function executeReminder(reminderId) {
   try {
     const reminder = await Reminder.findById(reminderId);
@@ -111,7 +125,7 @@ async function loadPendingReminders() {
     for (const r of pending) {
       const delay = r.scheduledFor.getTime() - DateTime.utc().toMillis();
       if (delay <= 0) await executeReminder(r._id);
-      else scheduledTimeouts.set(r._id.toString(), setTimeout(() => executeReminder(r._id), delay));
+      else scheduleReminder(r._id.toString(), delay);
     }
   } catch (error) {
     console.error('❌ Failed to load pending reminders:', error);
@@ -156,7 +170,7 @@ app.post('/create-item', async (req, res) => {
     const start = DateTime.fromISO(dateISO, { zone: 'utc' });
     const email = payload.resource.fields['System.CreatedBy'].split('<')[1].replace('>', '');
     const name = payload.resource.fields['Custom.Fullname'];
-    const slackIdBase = await getSlackUserIdByEmail('dminarolli@ritech.co');
+    const slackIdBase = await getSlackUserIdByEmail(email);
 
     const rules = isOnboarding ? onboardingRules : offboardingRules;
     for (const rule of rules) {
@@ -174,7 +188,7 @@ app.post('/create-item', async (req, res) => {
         console.log(`💾 Saved reminder ${rule.name} for ${name} to database`);
         const delay = due.toMillis() - DateTime.utc().toMillis();
         if (delay <= 0) await executeReminder(reminder._id);
-        else scheduledTimeouts.set(reminder._id.toString(), setTimeout(() => executeReminder(reminder._id), delay));
+        else scheduleReminder(reminder._id.toString(), delay);
       }
     }
     res.status(200).send(`${isOnboarding ? 'Onboarding' : 'Offboarding'} reminders scheduled`);
