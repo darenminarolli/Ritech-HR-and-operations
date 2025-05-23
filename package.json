@@ -2,22 +2,24 @@
   "name": "ritech_hr_",
   "version": "1.0.0",
   "main": "server.js",
- "scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js"
-},
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "description": "",
   "dependencies": {
+    "agenda": "^5.0.0",
     "axios": "^1.9.0",
     "body-parser": "^2.2.0",
-    "bullmq": "^5.52.2",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
-    "luxon": "^3.6.1"
+    "luxon": "^3.6.1",
+    "mongodb": "^6.16.0",
+    "mongoose": "^8.15.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
