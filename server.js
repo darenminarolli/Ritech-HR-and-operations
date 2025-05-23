@@ -203,7 +203,10 @@ app.delete('delete-item', async (req, res) => {
   try{
     const payload = req.body
     const currentState = payload.resource.fields['System.State'].newValue;
-    const reminder =await Reminder.findOneAndDelete({ status: currentState });
+    if (currentState === 'Closed') {
+           const reminder =await Reminder.findOneAndDelete({ status: currentState });
+           res.status(200).send(`Reminder with status ${currentState} deleted`);
+    }
   }catch (err) {
     console.error('Error deleting reminders:', err.stack || err.message);
     res.status(500).send('Error deleting reminders');
