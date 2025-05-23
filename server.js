@@ -31,7 +31,7 @@ async function sendDirectMessageToUser(userId, text) {
 }
 
 
-const redisConnection = { connection: { url: process.env.REDIS_URL } };
+const redisConnection = { connection: { url: process.env.REDIS_URL }, prefix: '{bull}' };
 const reminderQueue = new Queue('onboarding-queue', redisConnection);
 
 
@@ -92,14 +92,17 @@ app.post('/create-item', async (req, res) => {
     //   throw new Error('Work item must be tagged as either OnBoarding or OffBoarding');
     // }
 
-    const slackId = await getSlackUserIdByEmail(email);
+    let slackId = await getSlackUserIdByEmail(email);
     const rules = isOnboarding ? onboardingRules : offboardingRules;
 
     for (const rule of rules) {
       const due = start.plus({ days: rule.offsetDays || 0 });
       const delayMs = due.diff(now).as('milliseconds');
       
-     
+      if(rule.name === 'paperwork-signing'){
+        slackId = await getSlackUserIdByEmail('kkolani@ritech.co')
+      }
+
       if (rule.offsetDays === 0) {
         console.log(`Sending immediate message for '${rule.name}'`);
         const message = rule.template.replace('<%= name %>', name);
