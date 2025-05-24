@@ -186,7 +186,7 @@ app.post('/delete-item', async (req, res) => {
     console.log(`Attempting delete for user: ${name}, new state: ${state}`);
    console.log(resource)
     if (state === 'Closed') {
-      const result = await Reminder.findOneAndDelete({ name: name });
+      const result = await Reminder.deleteMany({ name: name });
       return res.send(`${result} pending reminders deleted`);
     }
     res.send('No reminders deleted');
