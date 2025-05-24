@@ -13,7 +13,7 @@ const SLACK_API = 'https://slack.com/api';
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_CHANNEL = 'ritech-hr-and-operations';
 const MONGODB_URI = process.env.MONGODB_URI;
-const MAX_TIMEOUT = 2 ** 31 - 1; // max 32-bit signed int (~24.8 days)
+const MAX_TIMEOUT = 2 ** 31 - 1; // max safe setTimeout (~24.8 days)
 
 // Connect to MongoDB
 async function connectToMongoDB() {
@@ -35,20 +35,17 @@ const reminderSchema = new mongoose.Schema({
   executed: { type: Boolean, default: false },
   executedAt: Date,
   assignee: String,
-  status: { type: String, default: 'New' },
   createdAt: { type: Date, default: Date.now },
   error: String
 });
 const Reminder = mongoose.model('Reminder', reminderSchema);
 
-// Send message to Slack channel
+// Post to Slack channel
 async function postToSlack(text) {
-  await axios.post(`${SLACK_API}/chat.postMessage`, {
-    channel: SLACK_CHANNEL,
-    text
-  }, {
-    headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' }
-  });
+  await axios.post(`${SLACK_API}/chat.postMessage`,
+    { channel: SLACK_CHANNEL, text },
+    { headers: { Authorization: `Bearer ${SLACK_BOT_TOKEN}`, 'Content-Type': 'application/json' } }
+  );
 }
 
 // Rule definitions
@@ -73,53 +70,54 @@ const offboardingRules = [
   { name: 'upload-termination',  offsetDays: 30, template: '🔔 Upload termination agreement for <%= name %> (assigned to Viktor)',        assignee: 'Viktor' }
 ];
 
-const scheduledTimeouts = new Map();
-
-// Extract ISO from field
+// Helper extract ISO
 function extractISO(field) {
   if (!field) return null;
   return typeof field === 'object' ? field.newValue : field;
 }
 
 // Overflow-safe scheduling
+const scheduledTimeouts = new Map();
 function scheduleReminder(id, delay) {
   if (delay > MAX_TIMEOUT) {
-    const timeout = setTimeout(() => scheduleReminder(id, delay - MAX_TIMEOUT), MAX_TIMEOUT);
-    scheduledTimeouts.set(id, timeout);
+    const t = setTimeout(() => scheduleReminder(id, delay - MAX_TIMEOUT), MAX_TIMEOUT);
+    scheduledTimeouts.set(id, t);
   } else {
-    const timeout = setTimeout(() => executeReminder(id), delay);
-    scheduledTimeouts.set(id, timeout);
+    const t = setTimeout(() => executeReminder(id), delay);
+    scheduledTimeouts.set(id, t);
   }
 }
 
+// Execute reminder
 async function executeReminder(id) {
-  const reminder = await Reminder.findById(id);
-  if (!reminder || reminder.executed) return;
+  const r = await Reminder.findById(id);
+  if (!r || r.executed) return;
   try {
-    await postToSlack(reminder.message);
-    reminder.executed = true;
-    reminder.executedAt = new Date();
-    await reminder.save();
-    console.log(`✅ Executed ${reminder.ruleName} for ${reminder.name}`);
+    await postToSlack(r.message);
+    r.executed = true;
+    r.executedAt = new Date();
+    await r.save();
+    console.log(`✅ Executed ${r.ruleName} for ${r.name}`);
   } catch (err) {
     console.error(`❌ Error executing ${id}:`, err.message);
-    reminder.error = err.message;
-    await reminder.save();
+    r.error = err.message;
+    await r.save();
   }
 }
 
+// Load pending on startup
 async function loadPendingReminders() {
   const now = DateTime.utc().toMillis();
-  const reminders = await Reminder.find({ executed: false, scheduledFor: { $gte: new Date() } });
-  console.log(`📋 Loading ${reminders.length} pending reminders`);
-  reminders.forEach(r => {
+  const rems = await Reminder.find({ executed: false });
+  console.log(`📋 Loading ${rems.length} reminders`);
+  rems.forEach(r => {
     const delay = r.scheduledFor.getTime() - now;
     if (delay <= 0) executeReminder(r._id);
     else scheduleReminder(r._id.toString(), delay);
   });
 }
 
-// App init
+// Initialize
 async function initializeApp() {
   await connectToMongoDB();
   await loadPendingReminders();
@@ -130,44 +128,44 @@ async function initializeApp() {
 process.on('SIGINT', graceful);
 process.on('SIGTERM', graceful);
 async function graceful() {
-  console.log('🔄 Shutting down');
   scheduledTimeouts.forEach(t => clearTimeout(t));
   await mongoose.connection.close();
   process.exit(0);
 }
 
-// Main route: create-item
+// POST create-item
 app.post('/create-item', async (req, res) => {
   try {
     const { resource } = req.body;
-    console.log(resource)
-    const tags = resource.fields['System.Tags'] || '';
-    const isOn = tags.includes('OnBoarding');
-    const isOff = tags.includes('OffBoarding');
+    const tags = (resource.fields['System.Tags'] || '').toLowerCase();
+    const isOn = tags.includes('onboarding');
+    const isOff = tags.includes('offboarding');
     // Determine anchor date
-    let dateISO = isOn
-      ? extractISO(resource.fields['Microsoft.VSTS.Scheduling.StartDate'])
-      : isOff
-        ? extractISO(resource.fields['Microsoft.VSTS.Scheduling.StartDate'])
-        : null;
+    let dateISO;
+    if (isOn) {
+      dateISO = extractISO(resource.fields['Microsoft.VSTS.Scheduling.StartDate']);
+    } else if (isOff) {
+      dateISO = extractISO(resource.fields['Custom.EndDate'])
+             || extractISO(resource.fields['Microsoft.VSTS.Scheduling.StartDate']);
+    }
     if (!dateISO) throw new Error('Relevant date not found');
     const start = DateTime.fromISO(dateISO, { zone: 'utc' });
     const name = resource.fields['Custom.Fullname'];
     const rules = isOn ? onboardingRules : offboardingRules;
-    // Schedule each rule
-    await Promise.all(rules.map(async rule => {
-      const due = start.plus({ days: rule.offsetDays }).toJSDate();
+    // Schedule rules
+    for (const rule of rules) {
+      const dueDate = start.plus({ days: rule.offsetDays }).toJSDate();
       const msg = rule.template.replace('<%= name %>', name);
       if (rule.offsetDays === 0) {
         await postToSlack(msg);
       } else {
-        const r = new Reminder({ name, ruleName: rule.name, message: msg, scheduledFor: due, assignee: rule.assignee });
+        const r = new Reminder({ name, ruleName: rule.name, message: msg, scheduledFor: dueDate, assignee: rule.assignee });
         await r.save();
-        const delay = new Date(due).getTime() - DateTime.utc().toMillis();
+        const delay = dueDate.getTime() - DateTime.utc().toMillis();
         if (delay <= 0) await executeReminder(r._id);
         else scheduleReminder(r._id.toString(), delay);
       }
-    }));
+    }
     res.send('Reminders scheduled');
   } catch (err) {
     console.error('Error scheduling:', err.message);
@@ -175,14 +173,21 @@ app.post('/create-item', async (req, res) => {
   }
 });
 
-// Delete route: delete-item
-app.delete('/delete-item', async (req, res) => {
+
+app.post('/delete-item', async (req, res) => {
   try {
-    const state = req.body.resource.fields['System.State']?.newValue;
-    console.log(state)
+    const { resource, revisedBy } = req.body;
+    const state = resource.fields['System.State']?.newValue;
+    const nameFromField = resource.revision?.fields?.['Custom.Fullname'];
+
+    const nameFromIdentity = revisedBy?.displayName;
+
+    const name = nameFromIdentity || nameFromField;
+    console.log(`Attempting delete for user: ${name}, new state: ${state}`);
+   console.log(resource)
     if (state === 'Closed') {
-      const rem = await Reminder.deleteMany({ status: state });
-      return res.send(`${rem.deletedCount} reminders deleted`);
+      const result = await Reminder.findOneAndDelete({ name: name });
+      return res.send(`${result} pending reminders deleted`);
     }
     res.send('No reminders deleted');
   } catch (err) {
@@ -191,7 +196,7 @@ app.delete('/delete-item', async (req, res) => {
   }
 });
 
-// Health & listing
+// Health & list
 app.get('/health', async (req, res) => {
   const mongo = mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected';
   const pending = await Reminder.countDocuments({ executed: false });
@@ -202,7 +207,7 @@ app.get('/reminders', async (req, res) => {
   res.json(list);
 });
 
-// Start server
+
 initializeApp().then(() => {
   const PORT = process.env.PORT || 8080;
   app.listen(PORT, () => console.log(`🚀 Running on port ${PORT}`));
