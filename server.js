@@ -140,6 +140,7 @@ async function graceful() {
 app.post('/create-item', async (req, res) => {
   try {
     const { resource } = req.body;
+    console.log(resource)
     const tags = resource.fields['System.Tags'] || '';
     const isOn = tags.includes('OnBoarding');
     const isOff = tags.includes('OffBoarding');
