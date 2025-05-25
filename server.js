@@ -1,4 +1,3 @@
-// scheduler.js
 require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -46,7 +45,6 @@ async function postToSlack(text) {
   );
 }
 
-// Rule definitions
 const onboardingRules = [
   { name: 'create-email', offsetDays: -7, template: '🔔 Create business e-mail address from GoDaddy for <%= name %> (assigned to Viktor)', assignee: 'Viktor' },
   { name: 'create-bamboo', offsetDays: -3, template: '🔔 Create BambooHR account for <%= name %> (assigned to Viktor)', assignee: 'Viktor' },
@@ -113,14 +111,12 @@ async function loadPendingReminders() {
   });
 }
 
-// Initialize
 async function initializeApp() {
   await connectToMongoDB();
   await loadPendingReminders();
   console.log('🎯 Scheduler initialized');
 }
 
-// Graceful shutdown
 process.on('SIGINT', graceful);
 process.on('SIGTERM', graceful);
 async function graceful() {
